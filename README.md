@@ -28,10 +28,10 @@ Tracking-relevant parameters are:
 * lapthresh:	Minimum overlap fraction required for objects to be considered potentially the same between consecutive images [Default is 0.6]
 
 Output-relevant parameters are:
-* flagwrite:	If not True, then no text files with object information is included in the output. [Default should be True]
+* flagwrite:	If False, then no text files with object information is included in the output. [Default should be True]
 * misval:		Preferred value to used for missing values.
-* flagplot:	If not True, no images are included in the output (plotting function defined in "user_functions.py" [Trials should set this to True, long runs could set it to False to save time]
-* flagplottest:	If not True, no test images are included to check the displacement vector calculations [Default should be False]
+* flagplot:	If True, a few images are included in the output (plotting function defined in "user_functions.py" [Trials should set this to True, long runs could set it to False to save time]
+* flagplottest:	If True, numerous test images are included to check the displacement vector calculations [Default should be False]
 
 # input
 
@@ -57,8 +57,8 @@ The number following storm/cell is the storm/cell id
 		  If the storm was created by splitting from a parent, life will be the life of the parent when this storm was created
 		  and will increment thereafer.
 * dx,dy:       the velocity of this storm at this timestep as determined from pattern correlation
-* meanv:    the average TB of the object
-* extreme:  the minimum TB of the object
+* meanv:    the average of the variable of interest for the object
+* extreme:  the minimum value of the variable of interest for the object
 * accreted: the storm ids that merged with this one at this timestep
 * parent:   if this storm split from another storm at this timestep this is the id of the parent storm 
 * child:    the ids of storms that split off this storm at this timestep.
