@@ -591,3 +591,19 @@ def write_storms(file_ID, init_time, now_time, label_method, squarelength, rafra
        else:
            fw.write(str(StormData[ns].parent[-1]) + '\r\n')
    fw.close()
+
+def write_html_files(file_ID, HTML_DIR, nt, wasarray, NewData, poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown, poi_string):
+	np.save(HTML_DIR + 'wasarray' + file_ID,wasarray) # Save array with labels for each time stamp to later plot contour for given label 
+	for ns in range(len(NewData)):
+		stormind=NewData[ns].was
+		if poi_string == 'area':
+			poi_array[nt,stormind] = NewData[ns].area 
+		if poi_string == 'extreme':
+			poi_array[nt,stormind] = NewData[ns].extreme 
+		if poi_string == 'meanvar':
+			poi_array[nt,stormind] = NewData[ns].meanvar
+		poi_boxleft[nt,stormind] = NewData[ns].boxleft
+		poi_boxup[nt,stormind] = NewData[ns].boxup
+		poi_boxright[nt,stormind] = NewData[ns].boxleft+NewData[ns].boxwidth
+		poi_boxdown[nt,stormind] = NewData[ns].boxup-NewData[ns].boxheight
+	return poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown

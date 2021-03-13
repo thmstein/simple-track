@@ -115,3 +115,65 @@ def plot_example(write_file_ID, nt, rain, xmat, ymat, newumat, newvmat, num_dt, 
         plt.ylabel('Distance from Chilbolton [km]')
         plt.savefig(IMAGES_DIR + 'Vectors_' + write_file_ID + '.png')
         plt.close()
+
+def plot_poi(HTML_DIR, DATA_DIR, filelist, poi_array, poi_boxdown, poi_boxleft, poi_boxup, poi_boxright, maxgifs, padt, padxy, poi_increasing, poi_string, xmathtml, ymathtml):
+	if poi_increasing:
+		poi_max_list = np.nanmax(poi_array,0) # Find maximum value for each storm (will need to allow for minima for instance in case of brightness temperatures
+		poi_max_list[np.where(np.isnan(poi_max_list)==1)] = 0.
+		poi_indices = np.argsort(poi_max_list) # Sorts maxima from small to large and returns indices
+	else:
+		poi_min_list = np.nanmin(poi_array,0)
+		poi_min_list[np.where(np.isnan(poi_min_list)==1)] = 999.
+		poi_indices = np.argsort(poi_min_list) 
+	for gifnum in range(0,maxgifs):
+		if gifnum>9:
+			gifstring = str(gifnum)
+		else:
+			gifstring = '0' + str(gifnum)
+		if poi_increasing==1:
+			poi_index = poi_indices[-1-gifnum]
+		else:
+			poi_index = poi_indices[gifnum]
+		# Establish times of interest for this storm, adding 1 hour each side of the storm period.
+		timeind=np.where(np.isnan(poi_array[:,poi_index])==0)
+		mintime = np.max([np.min(timeind)-padt,0])
+		maxtime = np.min([np.max(timeind)+padt,len(filelist)])
+		# Establish domain for each storm, padding it with some sensible amount on all sides 
+		minx = np.max([np.nanmin(poi_boxleft[:,poi_index])-padxy,np.min(xmathtml)])
+		maxx = np.min([np.nanmax(poi_boxright[:,poi_index])+padxy,np.max(xmathtml)])
+		miny = np.max([np.nanmin(poi_boxdown[:,poi_index])-padxy,np.min(ymathtml)])
+		maxy = np.min([np.nanmax(poi_boxup[:,poi_index])+padxy,np.max(ymathtml)])
+		# Set domain x and y limits to ensure a square domain
+		if maxy-miny > maxx-minx:
+			maxx = maxx + (maxy-miny-(maxx-minx))/2
+			minx = minx - (maxy-miny-(maxx-minx))/2
+		else:
+			maxy = maxy + (maxx-minx-(maxy-miny))/2
+			miny = miny - (maxx-minx-(maxy-miny))/2
+		# Load relevant arrays and plot storms with contours
+		for tij in range(mintime,maxtime):
+			var,file_ID,hourval,minval = loadfile(DATA_DIR + filelist[tij])
+			if hourval<10:
+				hourstr = '0' + str(hourval)
+			else:
+				hourstr = str(hourval)
+			if minval<10:
+				minstr = '0' + str(minval)
+			else:
+				minstr = str(minval)
+			wasfile = HTML_DIR + 'wasarray' + file_ID + '.npy'
+			wasarray = np.load(wasfile)
+			wasmask = np.where(wasarray!=poi_index,0,1)
+			fig = plt.figure(figsize=(6,6))
+			lrain=var+0.0
+			lrain[np.where(lrain<=0.)]=0.01
+			plt.pcolormesh(xmathtml,ymathtml,np.log2(lrain),vmin=-1,vmax=5) 
+			plt.contour(xmathtml,ymathtml,wasmask,levels=[0.5,2.],colors='red',linewidths=2)
+			plt.xlim(minx,maxx)
+			plt.ylim(miny,maxy)
+			plt.xlabel('Distance from Chilbolton [km]')
+			plt.ylabel('Distance from Chilbolton [km]')
+			plt.title('Object ' + gifstring + ' at ' + hourstr + minstr)
+			plt.savefig(HTML_DIR + poi_string + '/' + 'poi_' + poi_string + '_' + gifstring + '_' + file_ID)
+			plt.close()
+

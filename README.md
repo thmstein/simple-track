@@ -30,8 +30,9 @@ Tracking-relevant parameters are:
 Output-relevant parameters are:
 * flagwrite:	If False, then no text files with object information is included in the output. [Default should be True]
 * misval:		Preferred value to used for missing values.
-* flagplot:	If True, a few images are included in the output (plotting function defined in "user_functions.py" [Trials should set this to True, long runs could set it to False to save time]
+* flagplot:		If True, a few images are included in the output (plotting function defined in "user_functions.py" [Trials should set this to True, long runs could set it to False to save time]
 * flagplottest:	If True, numerous test images are included to check the displacement vector calculations [Default should be False]
+* flaghtml: 	If True, arrays with object IDs are stored at each time step, arrays with object properties are kept in memory, and at the end of the run, images are generated for objects having the largest or smallest values for the property of interest. A separate bash script need to be run to generate a HTML page with animated gifs using these images.
 
 # input
 

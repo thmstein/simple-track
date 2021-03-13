@@ -38,6 +38,17 @@ if flagplot or flagplottest:
     elif plot_type == '.png':
         my_dpi_global = 300
 
+flaghtml = True ## For creating a HTML page with animated gifs of the objects of interest (e.g. largest #maxgifs objects)
+obj_num_est = 1000 ## Estimate maximum total number of unique storms to be tracked, so that array can be initialised. Alternatively, append array but might be less efficient?
+maxgifs = 3 ## Total number of animations to be created for HTML page.
+padxy = 10 ## Padding of images so that object is not on the edge of the image.
+padt = 2 # Number of images to be shown before object first appears and after object disappears
+poi_string = 'area' # "poi" = "property of interest"; poi_string = String of property to be used for selection of objects of interest CURRENT OPTIONS are 'area', 'extreme', and 'meanvar' MUST BE single words to work as file string?
+poi_increasing = True # (1) looking for maxima (0) looking for minima [assumed to be different to "under_t"
+HTML_DIR = './html/'
+if os.path.exists(HTML_DIR + poi_string) == False:
+	raise ValueError('You need to create the folder "' + poi_string + '" in the directory ' + HTML_DIR)
+
 ##################################################################
 # THE FOLLOWING PARAMETERS CAN BE CHANGED, BUT SHOULD NOT BE
 ##################################################################
@@ -98,6 +109,13 @@ DATA_DIR = './data/'
 IMAGES_DIR = './output/'
 filelist = os.listdir(DATA_DIR)
 filelist = np.sort(filelist)
+if flaghtml:
+	poi_array = np.nan*np.zeros((len(filelist),obj_num_est))
+	poi_boxleft = np.zeros((len(filelist),obj_num_est))
+	poi_boxright = np.zeros((len(filelist),obj_num_est)) # boxleft+boxwidth
+	poi_boxup = np.zeros((len(filelist),obj_num_est))
+	poi_boxdown = np.zeros((len(filelist),obj_num_est)) # boxup-boxheight
+
 if doradar:
 	rarray=np.sqrt(xmat**2+ymat**2);
 	azarray=np.arctan(xmat/ymat);
@@ -154,6 +172,9 @@ for nt in range(len(filelist)):
 	# Plot tracked storm information (see user_functions.plot_example)
 	if flagplot:
 		user_functions.plot_example(write_file_ID, nt, var, xmat, ymat, newumat, newvmat, num_dt, wasarray, lifearray, threshold, IMAGES_DIR, plot_vectors)
+	# Store ID labels and track property of interest information
+	if flaghtml:
+		poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown = object_tracking.write_html_files(file_ID, HTML_DIR, nt, wasarray, NewData, poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown, poi_string)
 	# Save tracking information in preparation for next image
 	OldData = NewData
 	OldLabels = NewLabels
@@ -162,3 +183,5 @@ for nt in range(len(filelist)):
 	oldminval = minval
 	plot_vectors = True
 
+if flaghtml:
+	user_functions.plot_poi(HTML_DIR, DATA_DIR, filelist, poi_array, poi_boxdown, poi_boxleft, poi_boxup, poi_boxright, maxgifs, padt, padxy, poi_increasing, poi_string, xmat, ymat)
