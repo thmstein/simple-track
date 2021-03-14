@@ -3,6 +3,8 @@
 from netCDF4 import Dataset as ncfile
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
+import glob
 
 ###################################################
 # loadfile IS A USER SPECIFIED FUNCTION TO LOAD THE DATA AND TIME STAMP INFORMATION
@@ -154,13 +156,13 @@ def plot_poi(HTML_DIR, DATA_DIR, filelist, poi_array, poi_boxdown, poi_boxleft, 
 		for tij in range(mintime,maxtime):
 			var,file_ID,hourval,minval = loadfile(DATA_DIR + filelist[tij])
 			if hourval<10:
-				hourstr = '0' + str(hourval)
+				hourstr = '0' + str(int(hourval))
 			else:
-				hourstr = str(hourval)
+				hourstr = str(int(hourval))
 			if minval<10:
-				minstr = '0' + str(minval)
+				minstr = '0' + str(int(minval))
 			else:
-				minstr = str(minval)
+				minstr = str(int(minval))
 			wasfile = HTML_DIR + 'wasarray' + file_ID + '.npy'
 			wasarray = np.load(wasfile)
 			wasmask = np.where(wasarray!=poi_index,0,1)
@@ -176,4 +178,52 @@ def plot_poi(HTML_DIR, DATA_DIR, filelist, poi_array, poi_boxdown, poi_boxleft, 
 			plt.title('Object ' + gifstring + ' at ' + hourstr + minstr)
 			plt.savefig(HTML_DIR + poi_string + '/' + 'poi_' + poi_string + '_' + gifstring + '_' + file_ID)
 			plt.close()
+		# Create the frames
+		giffilename = HTML_DIR + poi_string + '_' + gifstring + '.gif'
+		frames = []
+		imgs = glob.glob(HTML_DIR + poi_string + '/*_' + gifstring + '_*.png')
+		for i in imgs:
+			new_frame = Image.open(i)
+			frames.append(new_frame)
+ 
+		# Save into a GIF file that loops forever
+		frames[0].save(giffilename, format='GIF', append_images=frames[1:], save_all=True,duration=300, loop=0)
 
+	fw = open(HTML_DIR + poi_string + '.html','w')
+	fw.write('<HTML>\n')
+	fw.write('<H3>Property of interest is ' + poi_string + '<H3>\n')
+	fw.write('<H3>Maximum number of objects animated is ' + str(maxgifs) + '<H3>\n')
+	for gifnum in range(0,maxgifs): 
+		if gifnum>9:
+			gifstring = str(gifnum)
+		else:
+			gifstring = '0' + str(gifnum)
+		giffilename = './' + poi_string + '_' + gifstring + '.gif'
+		if poi_increasing==1:
+			poi_index = poi_indices[-1-gifnum]
+		else:
+			poi_index = poi_indices[gifnum]
+		# Establish times of interest for this storm, adding 1 hour each side of the storm period.
+		timeind=np.where(np.isnan(poi_array[:,poi_index])==0)
+		mintime = np.max([np.min(timeind)-padt,0])
+		maxtime = np.min([np.max(timeind)+padt,len(filelist)])
+		fw.write('<table>\n')
+		fw.write('<tr>\n')
+		#fw.write('<td rowspan="' + str(int(maxtime-mintime)) + '"><img src="' + giffilename + '" width="600" usemap="#mapName" height="600">\n<map name="mapName">\n</td>\n')
+		fw.write('<td><img src="' + giffilename + '" width="600" usemap="#mapName" height="600">\n<map name="mapName">\n</td>\n')
+		for tij in range(mintime,maxtime):
+			var,file_ID,hourval,minval = loadfile(DATA_DIR + filelist[tij])
+			pngname = './' + poi_string + '/' + 'poi_' + poi_string + '_' + gifstring + '_' + file_ID + '.png'
+			pngtext = file_ID + '.png'
+			if tij==mintime:
+				fw.write('<td>')
+			fw.write('<a href="' + pngname + '">' + pngtext + '</a>\n')
+			if tij == maxtime-1:
+				fw.write('</td></tr>')
+			"""fw.write('<td><a href="' + pngname + '">' + pngtext + '</a></td>')
+			if tij < maxtime-1:
+				fw.write('</tr>\n<tr>\n')
+			else:
+				fw.write('</tr>\n')"""
+	fw.write('</HTML>')
+	fw.close()

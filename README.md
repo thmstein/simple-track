@@ -67,3 +67,17 @@ The number following storm/cell is the storm/cell id
 Additional properties can be added by experienced users by editing "object_tracking.py" (see above).
 
 Plots can be generated based on the output (e.g. in "user_functions.py" see plot_example function) but this will slow down the code significantly. 
+
+# generate animations
+
+The main difference in this branch is that it generates an HTML page with animations of the objects of interest.
+
+The following parameters should be considered when generating the page:
+* obj_num_est:		the number of unique objects expected in the total images to be tracked (you may need to do a trial run to find this number)
+* maxgifs: 			the total number of animations to be created for the HTML page
+* padxy: 			each animation will be focused on the object of interest. Add some padding to the edges (in units of the (x,y) grid, not in number of pixels)
+* padt: 			number of images to be shown before object first appears and after object disappears
+* poi_string		poi = "property of interest"; poi_string = String of property to be used for selection of objects of interest CURRENT OPTIONS are 'area', 'extreme', and 'meanvar' NEW OPTIONS require these to be added to the function write_html_files in object_tracking.
+* poi_increasing:	if True, looking for maxima
+* HTML_DIR:			directory to store the HTML page, animations, and images
+

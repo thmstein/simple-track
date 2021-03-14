@@ -111,10 +111,10 @@ filelist = os.listdir(DATA_DIR)
 filelist = np.sort(filelist)
 if flaghtml:
 	poi_array = np.nan*np.zeros((len(filelist),obj_num_est))
-	poi_boxleft = np.zeros((len(filelist),obj_num_est))
-	poi_boxright = np.zeros((len(filelist),obj_num_est)) # boxleft+boxwidth
-	poi_boxup = np.zeros((len(filelist),obj_num_est))
-	poi_boxdown = np.zeros((len(filelist),obj_num_est)) # boxup-boxheight
+	poi_boxleft = np.nan*np.zeros((len(filelist),obj_num_est))
+	poi_boxright = np.nan*np.zeros((len(filelist),obj_num_est)) # boxleft+boxwidth
+	poi_boxup = np.nan*np.zeros((len(filelist),obj_num_est))
+	poi_boxdown = np.nan*np.zeros((len(filelist),obj_num_est)) # boxup-boxheight
 
 if doradar:
 	rarray=np.sqrt(xmat**2+ymat**2);
