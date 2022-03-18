@@ -2,9 +2,11 @@
 
 from netCDF4 import Dataset as ncfile
 import numpy as np
+import numpy.ma as ma
 import matplotlib.pyplot as plt
-from PIL import Image
-import glob
+import cartopy.crs as ccrs
+import h5py as h5py
+import cartopy.feature as cfeat
 
 ###################################################
 # loadfile IS A USER SPECIFIED FUNCTION TO LOAD THE DATA AND TIME STAMP INFORMATION
@@ -15,15 +17,49 @@ import glob
 # mm = file minute stamp
 ###################################################
 
-def loadfile(filename):
+def loadfile(filename,firsttime):
     nc = ncfile(filename)
-    datad = nc.variables['var'][200:600,250:550]/32
-    datad = np.flipud(np.transpose(datad))
-    fidd = filename[-9:-5]
-    hh = float(fidd[0:2])
-    mm = float(fidd[2:4])
+    datad = nc.variables['T_b'][0,:,:]
+    fidd = filename[-16:-3]
+    rr = int(fidd[-13:-9])
+    oo = int(fidd[-9:-7])
+    dd = int(fidd[-7:-5])
+    hh = int(fidd[-4:-2])
+    mm = int(fidd[-2::])
+    xx=[]
+    yy=[]
+    if firsttime==True:
+        xx = nc.variables['longitude'][:]
+        yy = nc.variables['latitude'][:]
     
-    return datad, fidd, hh, mm
+    return datad, fidd, rr, oo, dd, hh, mm, xx, yy
+
+###################################################
+# loadgpm IS A USER SPECIFIED FUNCTION TO LOAD THE GPM DATA AND TIME STAMP INFORMATION
+# OUTPUT
+# datad = rainfall (2D array) in mm/hr
+# fidd = file time identifier yyyymmdd
+# hh = file hour
+# mm = file minute stamp
+###################################################
+
+def loadgpm(filename,firsttime):
+    dataset = h5py.File(filename, 'r')
+    datad = dataset['Grid/precipitationCal'][:]
+    datad = np.transpose(datad)
+    datad = datad[:,:,0]
+    rr = int(filename[-39:-35])
+    oo = int(filename[-35:-33])
+    dd = int(filename[-33:-31])
+    hh = int(filename[-29:-27])
+    mm = int(filename[-27:-25])
+    xx=[]
+    yy=[]
+    if firsttime==True:
+        xx = dataset['Grid/lon'][:]
+        yy = dataset['Grid/lat'][:]
+    
+    return datad, rr, oo, dd, hh, mm, xx, yy
 
 ###################################################
 # timediff IS A USER SPECIFIED FUNCION TO CALCULATE TIME SEPARATION BETWEEN CONSECUTIVE IMAGES
@@ -50,180 +86,305 @@ def plot_example(write_file_ID, nt, rain, xmat, ymat, newumat, newvmat, num_dt, 
     '''
         
     lrain=rain+0.0
-    lrain[np.where(lrain<=0.)]=0.01
+    maskwas = ma.masked_array(wasarray, mask=np.where(wasarray==0,1,0))
+    masklife = ma.masked_array(lifearray, mask=np.where(lifearray==0,1,0))
+    #lrain[np.where(lrain<=0.)]=0.01
         
-    figa=plt.figure(figsize=(6, 7))
+    figb=plt.figure(figsize=(6, 5))
     #ax = figa.add_subplot(111)
     #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
-    con = plt.pcolor(xmat,ymat,np.log2(lrain),vmin=-1,vmax=5)
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.coastlines()
+    con = plt.pcolor(xmat,ymat,maskwas,vmin=0,vmax=2000)
     plt_ax = plt.gca()
     left, bottom, width, height = plt_ax.get_position().bounds
-    posnew=[left,bottom+height/7,width,width*6/7]
+    posnew=[left,bottom+height/5,width,height*4/5]
     plt_ax.set_position(posnew)
-    plt.xlabel('Distance from Chilbolton [km]')
-    plt.ylabel('Distance from Chilbolton [km]')
-    colorbar_axes = figa.add_axes([left, bottom, width, 0.01])
-    # add a colourbar with a label
-    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
-    cbar.set_label('Rainfall rate [log2 mm hr^{-1}]')
-    plt.savefig(IMAGES_DIR + 'Rainrate_' + write_file_ID + '.png')
-    plt.close()
-        
-    figb=plt.figure(figsize=(6, 7))
-    #ax = figa.add_subplot(111)
-    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
-    con = plt.pcolor(xmat,ymat,wasarray,vmin=-10,vmax=200)
-    plt_ax = plt.gca()
-    left, bottom, width, height = plt_ax.get_position().bounds
-    posnew=[left,bottom+height/7,width,width*6/7]
-    plt_ax.set_position(posnew)
-    plt.xlabel('Distance from Chilbolton [km]')
-    plt.ylabel('Distance from Chilbolton [km]')
-    colorbar_axes = figb.add_axes([left, bottom, width, 0.01])
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    colorbar_axes = figb.add_axes([left, bottom, width, 0.05])
     # add a colourbar with a label
     cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
     cbar.set_label('Storm ID')
     plt.savefig(IMAGES_DIR + 'Stormid_' + write_file_ID + '.png')
     plt.close()
-        
-    lifearray[np.where(lifearray==0)]=-6
-    figc=plt.figure(figsize=(6, 7))
-    #ax = figa.add_subplot(111)
+
+    figa=plt.figure(figsize=(12, 5))
+    #ax = figa.add_axes()
     #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
-    con = plt.pcolor(xmat,ymat,5*lifearray,vmin=-30,vmax=60)
+    axa=plt.axes(projection=ccrs.PlateCarree(),position=[0.125,0.11,0.352,0.77])
+    axa.coastlines()
+    con = plt.pcolor(xmat,ymat,lrain,vmin=180,vmax=310)
     plt_ax = plt.gca()
     left, bottom, width, height = plt_ax.get_position().bounds
-    posnew=[left,bottom+height/7,width,width*6/7]
+    posnew=[left,bottom+height/5,width,height*4/5]
     plt_ax.set_position(posnew)
-    plt.xlabel('Distance from Chilbolton [km]')
-    plt.ylabel('Distance from Chilbolton [km]')
-    colorbar_axes = figc.add_axes([left, bottom, width, 0.01])
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.05])
     # add a colourbar with a label
     cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
-    cbar.set_label('Life time [mins]')
+    cbar.set_label('10.8 Brightness Temperature [K]')
+    #plt.savefig(IMAGES_DIR + 'Temperature_' + write_file_ID + '.png')
+    #plt.close()
+        
+    #figc=plt.figure(figsize=(6, 5))
+    #ax2 = figa.add_axes()
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+    axb=plt.axes(projection=ccrs.PlateCarree(),position=[0.548,0.11,0.352,0.77])
+    axb.coastlines()
+    con = plt.pcolor(xmat,ymat,20.*masklife/60.,vmin=0,vmax=12)
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.05])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
+    cbar.set_label('Life time [hr]')
     plt.savefig(IMAGES_DIR + 'Lifetime_' + write_file_ID + '.png')
     plt.close()
+    
     if do_vectors==True:
-        figd=plt.figure(figsize=(6, 7))
+        figd=plt.figure(figsize=(6, 5))
         #ax = figa.add_subplot(111)
         #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
-        con = plt.contour(xmat,ymat,lrain,levels=[threshold])
-        plt.quiver(xmat[::10,::10],ymat[::10,::10],newumat[::10,::10]/num_dt,newvmat[::10,::10]/num_dt,pivot='mid',units='width')
+	ax = plt.axes(projection=ccrs.PlateCarree())
+	ax.coastlines()
+	con = plt.contour(xmat,ymat,lrain,levels=[threshold])
+        plt.quiver(xmat[::10],ymat[::10],newumat[::10,::10]/num_dt,newvmat[::10,::10]/num_dt,pivot='mid',units='width')
         plt_ax = plt.gca()
         left, bottom, width, height = plt_ax.get_position().bounds
-        posnew=[left,bottom+height/7,width,width*6/7]
+        posnew=[left,bottom+height/5,width,height*4/5]
         plt_ax.set_position(posnew)
-        plt.xlabel('Distance from Chilbolton [km]')
-        plt.ylabel('Distance from Chilbolton [km]')
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
         plt.savefig(IMAGES_DIR + 'Vectors_' + write_file_ID + '.png')
         plt.close()
 
-def plot_poi(HTML_DIR, DATA_DIR, filelist, poi_array, poi_boxdown, poi_boxleft, poi_boxup, poi_boxright, maxgifs, padt, padxy, poi_increasing, poi_string, xmathtml, ymathtml):
-	if poi_increasing:
-		poi_max_list = np.nanmax(poi_array,0) # Find maximum value for each storm (will need to allow for minima for instance in case of brightness temperatures
-		poi_max_list[np.where(np.isnan(poi_max_list)==1)] = 0.
-		poi_indices = np.argsort(poi_max_list) # Sorts maxima from small to large and returns indices
-	else:
-		poi_min_list = np.nanmin(poi_array,0)
-		poi_min_list[np.where(np.isnan(poi_min_list)==1)] = 999.
-		poi_indices = np.argsort(poi_min_list) 
-	for gifnum in range(0,maxgifs):
-		if gifnum>9:
-			gifstring = str(gifnum)
-		else:
-			gifstring = '0' + str(gifnum)
-		if poi_increasing==1:
-			poi_index = poi_indices[-1-gifnum]
-		else:
-			poi_index = poi_indices[gifnum]
-		# Establish times of interest for this storm, adding 1 hour each side of the storm period.
-		timeind=np.where(np.isnan(poi_array[:,poi_index])==0)
-		mintime = np.max([np.min(timeind)-padt,0])
-		maxtime = np.min([np.max(timeind)+padt,len(filelist)])
-		# Establish domain for each storm, padding it with some sensible amount on all sides 
-		minx = np.max([np.nanmin(poi_boxleft[:,poi_index])-padxy,np.min(xmathtml)])
-		maxx = np.min([np.nanmax(poi_boxright[:,poi_index])+padxy,np.max(xmathtml)])
-		miny = np.max([np.nanmin(poi_boxdown[:,poi_index])-padxy,np.min(ymathtml)])
-		maxy = np.min([np.nanmax(poi_boxup[:,poi_index])+padxy,np.max(ymathtml)])
-		# Set domain x and y limits to ensure a square domain
-		if maxy-miny > maxx-minx:
-			maxx = maxx + (maxy-miny-(maxx-minx))/2
-			minx = minx - (maxy-miny-(maxx-minx))/2
-		else:
-			maxy = maxy + (maxx-minx-(maxy-miny))/2
-			miny = miny - (maxx-minx-(maxy-miny))/2
-		# Load relevant arrays and plot storms with contours
-		for tij in range(mintime,maxtime):
-			var,file_ID,hourval,minval = loadfile(DATA_DIR + filelist[tij])
-			if hourval<10:
-				hourstr = '0' + str(int(hourval))
-			else:
-				hourstr = str(int(hourval))
-			if minval<10:
-				minstr = '0' + str(int(minval))
-			else:
-				minstr = str(int(minval))
-			wasfile = HTML_DIR + 'wasarray' + file_ID + '.npy'
-			wasarray = np.load(wasfile)
-			wasmask = np.where(wasarray!=poi_index,0,1)
-			fig = plt.figure(figsize=(6,6))
-			lrain=var+0.0
-			lrain[np.where(lrain<=0.)]=0.01
-			plt.pcolormesh(xmathtml,ymathtml,np.log2(lrain),vmin=-1,vmax=5) 
-			plt.contour(xmathtml,ymathtml,wasmask,levels=[0.5,2.],colors='red',linewidths=2)
-			plt.xlim(minx,maxx)
-			plt.ylim(miny,maxy)
-			plt.xlabel('Distance from Chilbolton [km]')
-			plt.ylabel('Distance from Chilbolton [km]')
-			plt.title('Object ' + gifstring + ' at ' + hourstr + minstr)
-			plt.savefig(HTML_DIR + poi_string + '/' + 'poi_' + poi_string + '_' + gifstring + '_' + file_ID)
-			plt.close()
-		# Create the frames
-		giffilename = HTML_DIR + poi_string + '_' + gifstring + '.gif'
-		frames = []
-		imgs = glob.glob(HTML_DIR + poi_string + '/*_' + gifstring + '_*.png')
-		for i in imgs:
-			new_frame = Image.open(i)
-			frames.append(new_frame)
- 
-		# Save into a GIF file that loops forever
-		frames[0].save(giffilename, format='GIF', append_images=frames[1:], save_all=True,duration=300, loop=0)
+###################################################
+# plot_gpm IS A USER SPECIFIED FUNCTION TO PLOT THE GPM ACCUMULATION OVER THE TRACKING PERIOD
+###################################################
 
-	fw = open(HTML_DIR + poi_string + '.html','w')
-	fw.write('<HTML>\n')
-	fw.write('<H3>Property of interest is ' + poi_string + '<H3>\n')
-	fw.write('<H3>Maximum number of objects animated is ' + str(maxgifs) + '<H3>\n')
-	for gifnum in range(0,maxgifs): 
-		if gifnum>9:
-			gifstring = str(gifnum)
-		else:
-			gifstring = '0' + str(gifnum)
-		giffilename = './' + poi_string + '_' + gifstring + '.gif'
-		if poi_increasing==1:
-			poi_index = poi_indices[-1-gifnum]
-		else:
-			poi_index = poi_indices[gifnum]
-		# Establish times of interest for this storm, adding 1 hour each side of the storm period.
-		timeind=np.where(np.isnan(poi_array[:,poi_index])==0)
-		mintime = np.max([np.min(timeind)-padt,0])
-		maxtime = np.min([np.max(timeind)+padt,len(filelist)])
-		fw.write('<table>\n')
-		fw.write('<tr>\n')
-		#fw.write('<td rowspan="' + str(int(maxtime-mintime)) + '"><img src="' + giffilename + '" width="600" usemap="#mapName" height="600">\n<map name="mapName">\n</td>\n')
-		fw.write('<td><img src="' + giffilename + '" width="600" usemap="#mapName" height="600">\n<map name="mapName">\n</td>\n')
-		for tij in range(mintime,maxtime):
-			var,file_ID,hourval,minval = loadfile(DATA_DIR + filelist[tij])
-			pngname = './' + poi_string + '/' + 'poi_' + poi_string + '_' + gifstring + '_' + file_ID + '.png'
-			pngtext = file_ID + '.png'
-			if tij==mintime:
-				fw.write('<td>')
-			fw.write('<a href="' + pngname + '">' + pngtext + '</a>\n')
-			if tij == maxtime-1:
-				fw.write('</td></tr>')
-			"""fw.write('<td><a href="' + pngname + '">' + pngtext + '</a></td>')
-			if tij < maxtime-1:
-				fw.write('</tr>\n<tr>\n')
-			else:
-				fw.write('</tr>\n')"""
-	fw.write('</HTML>')
-	fw.close()
+def plot_gpm(lons,lats,accumulation,latmin,latmax,lonmin,lonmax,IMAGES_DIR):
+
+     # Plot the figure, define the geographic bounds
+
+     ind = np.where((lats > latmin) & (lats < latmax) & (lons > lonmin) & (lons < lonmax))
+
+     accumulation[np.where(accumulation<=0.1)]=0.1
+     masked_array = np.ma.masked_where(accumulation <= 0.1,accumulation)
+     maxval = np.nanmax(masked_array[ind])
+     maxint = int(np.log2(maxval)*2)
+     
+     bluemask = np.copy(accumulation)
+     bluemask[np.where(accumulation<maxval/4.)]=0.1
+          
+     clevs = np.arange(0,maxint/2+.5,.25)
+     base2 = 2**clevs[::4]
+     
+     figx = plt.figure(figsize=(6, 5))
+     ax = plt.axes(projection=ccrs.PlateCarree())
+     ax.coastlines()
+     #cmap = plt.get_cmap()
+     #cmap.set_bad('gray')
+     
+     # Plot every masked value as white
+     #cs = plt.pcolormesh(lons,lats,np.log2(masked_array),vmin=0,vmax=maxint/2.+.5)
+     extent = np.min(lons), np.max(lons), np.min(lats), np.max(lats)
+     cs = plt.imshow(np.log2(np.flipud(accumulation)),vmin=0,vmax=maxint/2.+.5,cmap=plt.cm.Greys,extent=extent)
+     bs = plt.contourf(lons,lats,np.log2(bluemask),levels=clevs,cmap=plt.cm.viridis)
+     
+     plt.xlabel('Longitude')
+     plt.ylabel('Latitude')
+     plt.xlim(lonmin,lonmax)
+     plt.ylim(latmin,latmax)
+
+     plt_ax = plt.gca()
+     left, bottom, width, height = plt_ax.get_position().bounds
+     posnew=[left,bottom+height/5,width,height*4/5]
+     plt_ax.set_position(posnew)
+     colorbar_axes = figx.add_axes([left, bottom, width, 0.03])
+     colorbar_axes2 = figx.add_axes([left, bottom+0.035, width, 0.03])
+     # add a colourbar with a label
+     abar = plt.colorbar(bs,colorbar_axes2, orientation='horizontal',ticks=[])
+     cbar = plt.colorbar(cs, colorbar_axes, orientation='horizontal', ticks=clevs[::4])
+     cbar.ax.set_xticklabels(base2)
+     cbar.set_label('Total rainfall [mm]')
+     
+     plt.savefig(IMAGES_DIR + 'IMERG.png')
+     plt.close()
+     # Set the title and fonts
+
+###################################################
+# plot_example IS ONLY USED AS AN ILLUSTRATION
+# OF THE EXAMPLE DATA
+###################################################
+
+def plot_spisea(write_file_ID, nt, rain, xmat, ymat, newumat, newvmat, num_dt, wasarray, lifearray, x0array, y0array, x1array, y1array, threshold, lons, lats, accumulation, latmin,latmax,lonmin,lonmax, IMAGES_DIR, do_vectors):
+    '''
+    PLOT FIGURES WITH RAINFALL RATE AND STORM LABELS
+    FOR ILLUSTRATIVE AND TESTING PURPOSES
+    '''
+        
+    lrain=rain+0.0
+    maskwas = ma.masked_array(wasarray, mask=np.where(wasarray==0,1,0))
+    masklife = ma.masked_array(lifearray, mask=np.where(lifearray==0,1,0))
+    #lrain[np.where(lrain<=0.)]=0.01
+        
+    figb=plt.figure(figsize=(6, 5))
+    #ax = figa.add_subplot(111)
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.coastlines()
+    con = plt.pcolor(xmat,ymat,maskwas,vmin=0,vmax=2000)
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.xticks(np.arange(80,140,4))
+    plt.yticks(np.arange(-12,10,2))
+    plt.xlim(xmat.min(),xmat.max())
+    plt.ylim(ymat.min(),ymat.max())
+    colorbar_axes = figb.add_axes([left, bottom, width, 0.05])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
+    cbar.set_label('Storm ID')
+    plt.savefig(IMAGES_DIR + 'Stormid_' + write_file_ID + '.png')
+    plt.close()
+
+    figa=plt.figure(figsize=(12, 10))
+    #ax = figa.add_axes()
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+    axa=plt.axes(projection=ccrs.PlateCarree(),position=[0.125,0.555,0.352,0.385])
+    axa.coastlines()
+    con = plt.pcolor(xmat,ymat,lrain,vmin=180,vmax=310)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.xticks(np.arange(80,140,2))
+    plt.yticks(np.arange(-12,10,2))
+    plt.xlim(xmat.min(),xmat.max())
+    plt.ylim(ymat.min(),ymat.max())
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.03])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
+    cbar.set_label('10.8 Brightness Temperature [K]')
+    #plt.savefig(IMAGES_DIR + 'Temperature_' + write_file_ID + '.png')
+    #plt.close()
+        
+    #figc=plt.figure(figsize=(6, 5))
+    #ax2 = figa.add_axes()
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+    axb=plt.axes(projection=ccrs.PlateCarree(),position=[0.548,0.555,0.352,0.385])
+    axb.coastlines()
+    con = plt.pcolor(xmat,ymat,20.*masklife/60.,vmin=0,vmax=12)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.xticks(np.arange(80,140,2))
+    plt.yticks(np.arange(-12,10,2))
+    plt.xlim(xmat.min(),xmat.max())
+    plt.ylim(ymat.min(),ymat.max())
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.03])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
+    cbar.set_label('Life time [hr]')
+
+    #figc=plt.figure(figsize=(6, 5))
+    #ax2 = figa.add_axes()
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+    axc=plt.axes(projection=ccrs.PlateCarree(),position=[0.125,0.055,0.352,0.385])
+    axc.coastlines()
+    templrain=lrain+0.0
+    templrain[np.where(lrain>233.)]=300. 
+    con = plt.pcolor(xmat,ymat,templrain,vmin=180,vmax=310)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.xticks(np.arange(80,140,2))
+    plt.yticks(np.arange(-12,10,2))
+    plt.xlim(xmat.min(),xmat.max())
+    plt.ylim(ymat.min(),ymat.max())
+    
+    # Add lines for each storm
+    for sij in range(len(x0array)):
+		distance = np.sqrt((x0array[sij]-x1array[sij])**2 + (y0array[sij]-y1array[sij])**2)
+		if distance > 1.:
+			plt.plot([x0array[sij],x1array[sij]],[y0array[sij],y1array[sij]],'-k.')
+    
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.03])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal')
+    cbar.set_label('Motion')
+
+    #figc=plt.figure(figsize=(6, 5))
+    #ax2 = figa.add_axes()
+    #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+
+    ind = np.where((lats > latmin) & (lats < latmax) & (lons > lonmin) & (lons < lonmax))
+
+    accumulation[np.where(accumulation<=1.0)]=1.0
+    #masked_array = np.ma.masked_where(accumulation <= 0.1,accumulation)
+    maxval = np.nanmax(accumulation[ind])
+    maxint = int(np.log2(maxval)*2)
+     
+    #bluemask = np.copy(accumulation)
+    #bluemask[np.where(accumulation<maxval/4.)]=0.1
+          
+    clevs = np.arange(0,maxint/2+1.,.25)
+    base2 = 2**clevs[::4]
+
+    axd=plt.axes(projection=ccrs.PlateCarree(),position=[0.548,0.055,0.352,0.385])
+    axd.coastlines()
+    con = plt.contourf(lons,lats,np.log2(accumulation),levels=clevs,cmap=plt.cm.viridis)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.xticks(np.arange(80,140,2))
+    plt.yticks(np.arange(-12,10,2))
+    plt.xlim(xmat.min(),xmat.max())
+    plt.ylim(ymat.min(),ymat.max())
+    plt_ax = plt.gca()
+    left, bottom, width, height = plt_ax.get_position().bounds
+    posnew=[left,bottom+height/5,width,height*4/5]
+    plt_ax.set_position(posnew)
+    colorbar_axes = figa.add_axes([left, bottom, width, 0.03])
+    # add a colourbar with a label
+    cbar = plt.colorbar(con, colorbar_axes, orientation='horizontal', ticks=clevs[::4])
+    cbar.ax.set_xticklabels(base2)
+    cbar.set_label('Total rainfall [mm]')
+
+    plt.savefig(IMAGES_DIR + 'lifetime/Lifetime_' + write_file_ID + '.png')
+    plt.close()
+    
+    if do_vectors==True:
+        figd=plt.figure(figsize=(6, 5))
+        #ax = figa.add_subplot(111)
+        #con = ax.imshow(f, cmap=cm.jet, interpolation='nearest')
+	ax = plt.axes(projection=ccrs.PlateCarree())
+	ax.coastlines()
+	con = plt.contour(xmat,ymat,lrain,levels=[threshold])
+        plt.quiver(xmat[::10],ymat[::10],newumat[::10,::10]/num_dt,newvmat[::10,::10]/num_dt,pivot='mid',units='width')
+        plt_ax = plt.gca()
+        left, bottom, width, height = plt_ax.get_position().bounds
+        posnew=[left,bottom+height/5,width,height*4/5]
+        plt_ax.set_position(posnew)
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.savefig(IMAGES_DIR + 'Vectors_' + write_file_ID + '.png')
+        plt.close()
+
+
