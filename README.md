@@ -1,5 +1,10 @@
 # simple-track
-Threshold-based object tracking algorithm for 2D data
+Threshold-based object tracking algorithm for 2D data.
+Casestudy branch is designed to for case study analysis.
+The prepared parameters will download Himawari data for 1-3 January 2020 (himawari.py).
+Data for a similar period will need to be downloaded from GPM (or elements related to GPM should be commented out).
+The code will track storm objects in Himawari data for given area and brightness temperature thresholds.
+A figure is produced after each time step, showing (1) brightness temperatures (2) storm object life times (3) storm object displacements (4) GPM total rainfall accumulation.
 
 # file description
 
@@ -8,6 +13,8 @@ Threshold-based object tracking algorithm for 2D data
 "object_tracking.py" is the Python program that actually does the tracking. This script should not need modification, unless the user wishes to store additional information about tracked objects. That additional information will need to be added to the "class StormS()" section and to the "write_storms" function in this script.
 
 "user_functions.py" is the user-specified script to load files, calculate time differences, and plot output. Other user-specified functions should be added here.
+
+"himawari.py" automatically downloads Himawari data for a specific date. Data are sliced to the domain specified and interpolated to a 4km horizontal resolution. 
 
 # parameters
 
