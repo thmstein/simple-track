@@ -28,6 +28,8 @@ class StormS():
                 self.extra_area=[(var[C] < a).sum() for a in extra_thresh]
             self.centroidx=np.mean(xmat[C])
             self.centroidy=np.mean(ymat[C])
+            self.centroidx0=misval
+            self.centroidy0=misval
             self.boxleft = np.min(xmat[C])
             self.boxup = np.max(ymat[C])
             self.boxwidth = np.max(xmat[C])-np.min(xmat[C])
@@ -81,6 +83,8 @@ class StormS():
                 self.extra_area=[int([d for d in string.split() if d.startswith('area<'+str(e))][0].split('=')[-1]) for e in extra_thresh]
             self.centroidx=float([d for d in string.split() if d.startswith('centroid=')][0].replace('centroid=', '').split(',')[0])
             self.centroidy=float([d for d in string.split() if d.startswith('centroid=')][0].replace('centroid=', '').split(',')[1])
+            self.centroidx0=float([d for d in string.split() if d.startswith('centroid0=')][0].replace('centroid0=', '').split(',')[0])
+            self.centroidy0=float([d for d in string.split() if d.startswith('centroid0=')][0].replace('centroid0=', '').split(',')[1])
             self.life=int([d for d in string.split() if d.startswith('life=')][0].replace('life=', ''))
             self.was=int(string.split()[1])
             self.dx=float([d for d in string.split() if d.startswith('dx=')][0].replace('dx=', ''))
@@ -103,6 +107,8 @@ class StormS():
         self.was = OldStormData[kindex].was
         self.life=OldStormData[kindex].life+1
         self.wasdist=np.size(np.where((QuvL==kindex+1) & (StormLabels==jj)),1)
+        self.centroidx0 = OldStormData[kindex].centroidx0
+        self.centroidy0 = OldStormData[kindex].centroidy0
         qind = kindex+1
         # Code below is only required when multiple clouds overlap
         if not(single_overlap):
@@ -154,6 +160,8 @@ def track_storms(OldStormData, var, newwas, StormLabels, OldStormLabels, xmat, y
            newwas=newwas+1
            lifearray[C]=1
            waslabels.append(StormData[ns].was)
+           StormData[ns].centroidx0 = StormData[ns].centroidx+0.0
+           StormData[ns].centroidy0 = StormData[ns].centroidy+0.0
     ###################################################
     # OldStormData & StormData ARE NOT EMPTY, SO USE FFT TO GET VELOCITIES
     # AND UPDATE UVLABEL IN OldStormData ACCORDINGLY
@@ -243,6 +251,10 @@ def track_storms(OldStormData, var, newwas, StormLabels, OldStormLabels, xmat, y
        # Interpolate these displacements onto the full grid
        newumat = interpolate_speeds(xint, yint, xmat, ymat, buu)
        newvmat = interpolate_speeds(xint, yint, xmat, ymat, bvv)
+       if len(newumat)==0:
+           newumat=np.zeros(np.shape(OldStormLabels))
+       if len(newvmat)==0:
+           newvmat=np.zeros(np.shape(OldStormLabels))
        
        # Assign displacement to each of the old storms. 
        newlabel = np.zeros(OldStormLabels.shape)
@@ -365,6 +377,8 @@ def track_storms(OldStormData, var, newwas, StormLabels, OldStormLabels, xmat, y
               StormData[ns].life=1
               lifearray[C] = 1
               newwas=newwas+1
+              StormData[ns].centroidx0 = StormData[ns].centroidx+0.0
+              StormData[ns].centroidy0 = StormData[ns].centroidy+0.0
        wasnum=np.array([StormData[ns].was for ns in range(len(StormData))])
        ###################################################
        # QUICK SANITY CHECK
@@ -436,6 +450,8 @@ def track_storms(OldStormData, var, newwas, StormLabels, OldStormLabels, xmat, y
                  wasnum[wasind[0][kkind]]=StormData[wasind[0][kkind]].was
                  children.append(StormData[wasind[0][kkind]].was)
                  StormData[wasind[0][kkind]].wasdist=misval
+                 StormData[wasind[0][kkind]].centroidx0 = StormData[wasind[0][kkind]].centroidx + 0.0
+                 StormData[wasind[0][kkind]].centroidy0 = StormData[wasind[0][kkind]].centroidy + 0.0
            ###################################################
            # UPDATE PARENT STORM WITH CHILDREN
            ###################################################
@@ -459,7 +475,7 @@ def interpolate_speeds(xint, yint, xmat, ymat, buu):
        fu = interpolate.interp2d(xint[0,:],yint[:,0],filled,kind='cubic')
        newumat = fu(xmat[0,:],ymat[:,0])
     else:
-       newumat = np.zeros(np.shape(OldStormLabels))
+       newumat = []
     return newumat
 
 ###################################################
@@ -568,6 +584,7 @@ def write_storms(file_ID, init_time, now_time, label_method, squarelength, rafra
 #       fw.write(' label=' + str(StormData[ns].storm)) # Matches storm to label in mask. Actually no need for this as it is the same as it matches the order of the storms.
        fw.write(' area=' + str(StormData[ns].area))
        fw.write(' centroid=' + str(round(StormData[ns].centroidx,2)) + ',' + str(round(StormData[ns].centroidy,2)))
+       fw.write(' centroid0=' + str(round(StormData[ns].centroidx0,2)) + ',' + str(round(StormData[ns].centroidy0,2)))
        fw.write(' box=' + str(StormData[ns].boxleft) + ',' + str(StormData[ns].boxup) + ',' + str(StormData[ns].boxwidth) + ',' + str(StormData[ns].boxheight))
        fw.write(' life=' + str(StormData[ns].life))
        fw.write(' dx=' + str(round(StormData[ns].dx,2)) + ' dy=' + str(round(StormData[ns].dy,2)))
@@ -591,19 +608,3 @@ def write_storms(file_ID, init_time, now_time, label_method, squarelength, rafra
        else:
            fw.write(str(StormData[ns].parent[-1]) + '\r\n')
    fw.close()
-
-def write_html_files(file_ID, HTML_DIR, nt, wasarray, NewData, poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown, poi_string):
-	np.save(HTML_DIR + 'wasarray' + file_ID,wasarray) # Save array with labels for each time stamp to later plot contour for given label 
-	for ns in range(len(NewData)):
-		stormind=NewData[ns].was
-		if poi_string == 'area':
-			poi_array[nt,stormind] = NewData[ns].area 
-		if poi_string == 'extreme':
-			poi_array[nt,stormind] = NewData[ns].extreme 
-		if poi_string == 'meanvar':
-			poi_array[nt,stormind] = NewData[ns].meanvar
-		poi_boxleft[nt,stormind] = NewData[ns].boxleft
-		poi_boxup[nt,stormind] = NewData[ns].boxup
-		poi_boxright[nt,stormind] = NewData[ns].boxleft+NewData[ns].boxwidth
-		poi_boxdown[nt,stormind] = NewData[ns].boxup-NewData[ns].boxheight
-	return poi_array, poi_boxleft, poi_boxright, poi_boxup, poi_boxdown
